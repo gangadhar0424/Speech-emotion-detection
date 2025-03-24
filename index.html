@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech Emotion Recognition</title>
+    <style>
+        :root {
+            --primary: #00ffff;
+            --primary-dark: #00cccc;
+            --bg-dark: #1a1a1a;
+            --bg-light: #2a2a2a;
+            --text-light: #ffffff;
+            --text-dark: #1a1a1a;
+            --success: #00ff7f;
+            --warning: #ffcc00;
+            --danger: #ff4d4d;
+        }
+        
+        body {
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-light);
+            overflow-x: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .container {
+            text-align: center;
+            padding: 40px;
+            background: var(--bg-light);
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            animation: fadeIn 1s ease-in-out;
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+            z-index: 10;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            color: var(--primary);
+            text-shadow: 0 0 10px var(--primary);
+        }
+        
+        .option-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin: 25px 0;
+        }
+        
+        button, label.btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: var(--primary);
+            color: var(--text-dark);
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            font-weight: bold;
+            font-size: 1em;
+        }
+        
+        button:hover, label.btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px var(--primary);
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        #record-btn.recording {
+            background: var(--danger);
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .status-area {
+            margin: 20px 0;
+            min-height: 50px;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        .visualizer {
+            width: 100%;
+            height: 100px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+            position: relative;
+        }
+        
+        #canvas {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .result-box {
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            display: none;
+        }
+        
+        .result-box.show {
+            display: block;
+            animation: slideUp 0.5s ease-out;
+        }
+        
+        .emotion-display {
+            font-size: 2em;
+            margin: 15px 0;
+            font-weight: bold;
+            text-shadow: 0 0 10px var(--primary);
+        }
+        
+        .audio-controls {
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .audio-controls.show {
+            display: block;
+        }
+        
+        progress {
+            width: 100%;
+            height: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        progress::-webkit-progress-bar {
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+        }
+        
+        progress::-webkit-progress-value {
+            background-color: var(--primary);
+            border-radius: 5px;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .particles {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .particle {
+            position: absolute;
+            background: var(--primary);
+            border-radius: 50%;
+            opacity: 0.5;
+            animation: float 5s infinite;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0); opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-100vh); opacity: 0; }
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            button, label.btn {
+                padding: 12px 20px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="particles" id="particles"></div>
+    
+    <div class="container">
+        <h1>Speech Emotion Recognition</h1>
+        
+        <div class="visualizer">
+            <canvas id="canvas"></canvas>
+        </div>
+        
+        <div class="status-area" id="status">
+            Ready to detect emotions from your voice
+        </div>
+        
+        <div class="option-buttons">
+            <button id="record-btn">Start Recording</button>
+            <label for="audio-upload" class="btn">Upload Audio</label>
+            <input type="file" id="audio-upload" accept="audio/*">
+            <button id="play-btn" disabled>Play Audio</button>
+        </div>
+        
+        <progress id="upload-progress" value="0" max="100" style="display: none;"></progress>
+        
+        <div class="result-box" id="result-box">
+            <h2>Detected Emotion</h2>
+            <div class="emotion-display" id="emotion-display"></div>
+            <div class="audio-controls" id="audio-controls">
+                <audio id="audio-playback" controls></audio>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const recordBtn = document.getElementById('record-btn');
+        const playBtn = document.getElementById('play-btn');
+        const audioUpload = document.getElementById('audio-upload');
+        const statusArea = document.getElementById('status');
+        const resultBox = document.getElementById('result-box');
+        const emotionDisplay = document.getElementById('emotion-display');
+        const audioControls = document.getElementById('audio-controls');
+        const audioPlayback = document.getElementById('audio-playback');
+        const canvas = document.getElementById('canvas');
+        const uploadProgress = document.getElementById('upload-progress');
+        const ctx = canvas.getContext('2d');
+        
+        // Global variables
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioBlob;
+        let audioStream;
+        let isRecording = false;
+        let animationId;
+        let analyser;
+        let dataArray;
+        
+        // Particle animation
+        function createParticle() {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            const size = Math.random() * 5 + 2;
+            particle.style.width = `${size}px`;
+            particle.style.height = `${size}px`;
+            particle.style.left = `${Math.random() * 100}vw`;
+            particle.style.top = `${Math.random() * 100}vh`;
+            particle.style.animationDuration = `${Math.random() * 3 + 2}s`;
+            document.getElementById('particles').appendChild(particle);
+            setTimeout(() => particle.remove(), 5000);
+        }
+        
+        setInterval(createParticle, 200);
+        
+        // Start or stop recording
+        recordBtn.addEventListener('click', async () => {
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        });
+        
+        // Audio upload handling
+        audioUpload.addEventListener('change', handleAudioUpload);
+        
+        // Play recorded audio
+        playBtn.addEventListener('click', () => {
+            if (audioBlob) {
+                const audioURL = URL.createObjectURL(audioBlob);
+                audioPlayback.src = audioURL;
+                audioPlayback.play();
+            }
+        });
+
+        // Helper function to convert audio buffer to WAV
+        function audioBufferToWav(audioBuffer) {
+            const numOfChan = audioBuffer.numberOfChannels;
+            const length = audioBuffer.length * numOfChan * 2 + 44;
+            const buffer = new ArrayBuffer(length);
+            const view = new DataView(buffer);
+            const sampleRate = audioBuffer.sampleRate;
+
+            // Write WAV header
+            const writeString = (offset, string) => {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            };
+
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + audioBuffer.length * numOfChan * 2, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, numOfChan, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * numOfChan * 2, true);
+            view.setUint16(32, numOfChan * 2, true);
+            view.setUint16(34, 16, true);
+            writeString(36, 'data');
+            view.setUint32(40, audioBuffer.length * numOfChan * 2, true);
+
+            // Write PCM audio data
+            const channelData = [];
+            for (let i = 0; i < numOfChan; i++) {
+                channelData.push(audioBuffer.getChannelData(i));
+            }
+
+            let offset = 44;
+            for (let i = 0; i < audioBuffer.length; i++) {
+                for (let channel = 0; channel < numOfChan; channel++) {
+                    const sample = Math.max(-1, Math.min(1, channelData[channel][i]));
+                    const value = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+                    view.setInt16(offset, value, true);
+                    offset += 2;
+                }
+            }
+
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        // Start recording function
+        async function startRecording() {
+            try {
+                audioChunks = [];
+                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(audioStream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+                
+                const bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+                
+                visualize();
+                
+                // Use a supported mimeType
+                const options = { mimeType: 'audio/webm;codecs=opus' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    console.warn('audio/webm;codecs=opus not supported, trying audio/ogg');
+                    options.mimeType = 'audio/ogg;codecs=opus';
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        console.warn('audio/ogg;codecs=opus not supported, using default');
+                        options.mimeType = '';
+                    }
+                }
+                mediaRecorder = new MediaRecorder(audioStream, options);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    const recordedBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+                    
+                    // Convert the recorded audio to WAV
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const arrayBuffer = await recordedBlob.arrayBuffer();
+                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                    audioBlob = audioBufferToWav(audioBuffer);
+                    
+                    sendAudioForAnalysis(audioBlob, 'recorded_audio.wav');
+                    playBtn.disabled = false;
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                recordBtn.textContent = 'Stop Recording';
+                recordBtn.classList.add('recording');
+                updateStatus('Recording in progress...');
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                updateStatus('Error accessing microphone: ' + error.message);
+            }
+        }
+        
+        // Stop recording function
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                audioStream.getTracks().forEach(track => track.stop());
+                cancelAnimationFrame(animationId);
+                isRecording = false;
+                recordBtn.textContent = 'Start Recording';
+                recordBtn.classList.remove('recording');
+                updateStatus('Processing audio...');
+            }
+        }
+        
+        // Handle file upload
+        function handleAudioUpload(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                updateStatus('No file selected');
+                return;
+            }
+            
+            updateStatus(`File selected: ${file.name}`);
+            audioBlob = file;
+            sendAudioForAnalysis(file, file.name);
+            
+            const audioURL = URL.createObjectURL(file);
+            audioPlayback.src = audioURL;
+            playBtn.disabled = false;
+        }
+        
+        // Send audio for analysis
+        async function sendAudioForAnalysis(audioData, filename) {
+            updateStatus('Analyzing audio...');
+            uploadProgress.style.display = 'block';
+            
+            const formData = new FormData();
+            formData.append('audio', audioData, filename);
+            
+            try {
+                const response = await fetch('http://127.0.0.1:5000/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                uploadProgress.style.display = 'none';
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server error ${response.status}: ${errorText}`);
+                }
+                
+                const result = await response.json();
+                displayEmotion(result.emotion);
+            } catch (error) {
+                uploadProgress.style.display = 'none';
+                console.error("Error during prediction:", error.message, error.stack);
+                updateStatus('Failed to get prediction. Check console for details.');
+            }
+        }
+        
+        // Display detected emotion
+        function displayEmotion(emotion) {
+            resultBox.classList.add('show');
+            emotionDisplay.textContent = emotion.toUpperCase();
+            audioControls.classList.add('show');
+            
+            switch(emotion.toLowerCase()) {
+                case 'happy':
+                    emotionDisplay.style.color = '#00ff7f';
+                    break;
+                case 'sad':
+                    emotionDisplay.style.color = '#4169e1';
+                    break;
+                case 'angry':
+                    emotionDisplay.style.color = '#ff4d4d';
+                    break;
+                case 'crying':
+                case 'sobbing':
+                    emotionDisplay.style.color = '#9370db';
+                    break;
+                default:
+                    emotionDisplay.style.color = '#00ffff';
+            }
+            
+            updateStatus('Emotion detected!');
+        }
+        
+        // Update status message
+        function updateStatus(message) {
+            statusArea.textContent = message;
+        }
+        
+        // Audio visualization
+        function visualize() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            function draw() {
+                animationId = requestAnimationFrame(draw);
+                
+                analyser.getByteFrequencyData(dataArray);
+                
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                const barWidth = (canvas.width / dataArray.length) * 2.5;
+                let x = 0;
+                
+                for (let i = 0; i < dataArray.length; i++) {
+                    const barHeight = dataArray[i] / 255 * canvas.height;
+                    
+                    const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
+                    gradient.addColorStop(0, '#00ffff');
+                    gradient.addColorStop(0.5, '#00ccff');
+                    gradient.addColorStop(1, '#0099ff');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                    
+                    x += barWidth + 1;
+                }
+            }
+            
+            draw();
+        }
+        
+        // Initialize canvas size
+        function initCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        window.addEventListener('load', initCanvas);
+        window.addEventListener('resize', initCanvas);
+    </script>
+</body>
+</html>

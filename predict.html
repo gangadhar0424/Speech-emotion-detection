@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction Result</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+        h1 { color: #333; }
+        #emotion { font-size: 24px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Predicted Emotion</h1>
+    <div id="emotion"></div>
+    <script>
+        fetch('http://127.0.0.1:5000/predict')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('emotion').textContent = data.emotion.toUpperCase();
+            })
+            .catch(error => console.error('Error fetching prediction:', error));
+    </script>
+</body>
+</html>
