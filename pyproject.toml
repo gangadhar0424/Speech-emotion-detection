@@ -1,0 +1,6 @@
+[project]
+name = "speech-emotion-detection"
+version = "0.1.0"
+
+[tool.nixpacks]
+start = "gunicorn app:app"
